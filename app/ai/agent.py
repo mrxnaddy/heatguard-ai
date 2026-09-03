@@ -36,7 +36,8 @@ class HeatGuardAgent:
             known_locations = [
                 "lahore", "karachi", "islamabad", "rawalpindi", "faisalabad", 
                 "multan", "peshawar", "quetta", "blue area", "f-6", 
-                "margalla", "i-9", "committee chowk", "saddar", "bahria town"
+                "margalla", "i-9", "committee chowk", "saddar", "bahria town",
+                "isb", "lhr", "khi", "rwp", "fsd", "mul", "pew", "qta"
             ]
             
             found_loc = next((loc for loc in known_locations if loc in query_lower), None)

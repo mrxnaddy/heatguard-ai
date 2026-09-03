@@ -160,6 +160,21 @@ class FortyGuardClient:
         import requests
         from app.config import settings
         
+        short_forms = {
+            "isb": "Islamabad",
+            "lhr": "Lahore",
+            "khi": "Karachi",
+            "rwp": "Rawalpindi",
+            "fsd": "Faisalabad",
+            "mul": "Multan",
+            "pew": "Peshawar",
+            "qta": "Quetta"
+        }
+        
+        query_clean = city_name.strip().lower()
+        if query_clean in short_forms:
+            city_name = short_forms[query_clean]
+
         api_key = getattr(settings, "OPENWEATHER_API_KEY", None) or __import__("os").getenv("OPENWEATHER_API_KEY")
         url = f"https://api.openweathermap.org/data/2.5/weather?q={city_name},PK&units=metric&appid={api_key}"
         

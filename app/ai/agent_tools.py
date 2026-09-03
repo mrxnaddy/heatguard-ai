@@ -14,11 +14,27 @@ class AgentTools:
         self.client = client or FortyGuardClient()
 
     def get_location_risk(self, location_query: str) -> dict:
-        """Get risk score and temperature for a specific location by ID or name."""
+        """Get risk score and temperature for a specific location by ID, name, or short-form."""
         try:
             locations = self.client.get_all_locations()
         except Exception:
             return {"error": "Unable to retrieve location data."}
+
+        # Short-form mapping dictionary for Pakistani cities and codes
+        short_forms = {
+            "isb": "Islamabad",
+            "lhr": "Lahore",
+            "khi": "Karachi",
+            "rwp": "Rawalpindi",
+            "fsd": "Faisalabad",
+            "mul": "Multan",
+            "pew": "Peshawar",
+            "qta": "Quetta"
+        }
+        
+        query_clean = location_query.strip().lower()
+        if query_clean in short_forms:
+            location_query = short_forms[query_clean]
 
         match = next(
             (loc for loc in locations if location_query.lower() in loc.name.lower() or location_query.lower() == loc.location_id),
@@ -35,7 +51,7 @@ class AgentTools:
             "temperature_c": match.temperature_c,
             "risk_score": risk.score,
             "risk_level": risk.level,
-            "confidence": risk.confidence,
+            "confidence": match.confidence,
             "source": match.source,
             "timestamp": match.timestamp.isoformat(),
         }
