@@ -1,0 +1,7 @@
+streamlit>=1.37
+pydantic>=2.7
+python-dotenv>=1.0
+requests>=2.32
+folium>=0.17
+streamlit-folium>=0.23
+pytest>=8.2
