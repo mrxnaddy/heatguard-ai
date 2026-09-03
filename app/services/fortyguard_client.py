@@ -155,3 +155,23 @@ class FortyGuardClient:
         if reading.temperature_c is None:
             raise InvalidResponseError("Missing temperature_c in provider response")
         return reading
+
+    def get_live_weather(self, city_name: str) -> dict:
+        import requests
+        from app.config import settings
+        
+        api_key = getattr(settings, "OPENWEATHER_API_KEY", "YOUR_API_KEY_HERE")
+        url = f"https://api.openweathermap.org/data/2.5/weather?q={city_name},PK&units=metric&appid={api_key}"
+        
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                "name": data["name"],
+                "temperature_c": data["main"]["temp"],
+                "humidity": data["main"]["humidity"],
+                "condition": data["weather"][0]["description"],
+                "confidence": "high"
+            }
+        else:
+            return {"error": f"Could not fetch live data for {city_name}"}

@@ -7,6 +7,7 @@ safe_call error boundaries and UI helpers from Phase 2.
 """
 from __future__ import annotations
 
+from types import SimpleNamespace
 import streamlit as st
 
 from app.ai.agent import HeatGuardAgent
@@ -79,17 +80,41 @@ def main() -> None:
         st.stop()
         return
 
-    # --- Location selector ---
-    name_to_id = {loc.name: loc.location_id for loc in locations}
-    selected_name = st.selectbox("📍 Select a location", options=list(name_to_id.keys()))
-    selected_id = name_to_id[selected_name]
+    # --- Location selector & Live City Search ---
+    search_mode = st.radio("Mode", ["Preset Stations", "Live City Search (Pakistan)"], horizontal=True, key="search_mode")
+    
+    if search_mode == "Preset Stations":
+        name_to_id = {loc.name: loc.location_id for loc in locations}
+        selected_name = st.selectbox("📍 Select a location", options=list(name_to_id.keys()))
+        selected_id = name_to_id[selected_name]
 
-    reading_result = safe_call(lambda: client.get_temperature(selected_id))
-    if not reading_result.ok:
-        render_error_banner(reading_result.error.user_message)
-        st.stop()
-        return
-    reading = reading_result.value
+        reading_result = safe_call(lambda: client.get_temperature(selected_id))
+        if not reading_result.ok:
+            render_error_banner(reading_result.error.user_message)
+            st.stop()
+            return
+        reading = reading_result.value
+    else:
+        custom_city = st.text_input("Enter city name in Pakistan (e.g., Lahore, Karachi, Faisalabad, Multan):", "Lahore")
+        if custom_city:
+            live_res = client.get_live_weather(custom_city)
+            if "error" not in live_res:
+                reading = SimpleNamespace(
+                    location_id=custom_city.lower().replace(" ", "-"),
+                    name=live_res["name"],
+                    temperature_c=live_res["temperature_c"],
+                    confidence=live_res["confidence"],
+                    source="OpenWeatherMap Live",
+                    timestamp=__import__("datetime").datetime.now()
+                )
+                selected_name = live_res["name"]
+            else:
+                st.error(live_res["error"])
+                st.stop()
+                return
+        else:
+            st.stop()
+            return
 
     # Compute deterministic risk score via Phase 3 service
     risk = calculate_risk(reading)

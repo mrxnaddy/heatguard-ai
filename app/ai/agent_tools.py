@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from app.data.models import Hotspot, RiskScore, TemperatureReading
 from app.services.fortyguard_client import FortyGuardClient
 from app.services.hotspot_detection import detect_hotspots
@@ -36,6 +37,32 @@ class AgentTools:
             "confidence": risk.confidence,
             "source": match.source,
             "timestamp": match.timestamp.isoformat(),
+        }
+
+    def get_city_live_risk(self, city_name: str) -> dict:
+        """Fetch live weather for any city in Pakistan and calculate risk score."""
+        live_data = self.client.get_live_weather(city_name)
+        
+        if "error" in live_data:
+            return live_data
+
+        reading = SimpleNamespace(
+            location_id=city_name.lower().replace(" ", "-"),
+            name=live_data["name"],
+            temperature_c=live_data["temperature_c"],
+            confidence=live_data["confidence"]
+        )
+        
+        risk = calculate_risk(reading)
+        
+        return {
+            "name": live_data["name"],
+            "temperature_c": live_data["temperature_c"],
+            "humidity": live_data["humidity"],
+            "condition": live_data["condition"],
+            "risk_level": risk.level,
+            "risk_score": risk.score,
+            "confidence": live_data["confidence"]
         }
 
     def get_top_hotspots(self, n: int = 3) -> list[dict]:
