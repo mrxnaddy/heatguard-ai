@@ -119,6 +119,9 @@ def main() -> None:
             st.stop()
             return
 
+    # Store active reading in session state for dynamic component synchronization
+    st.session_state.current_reading = reading
+
     # Compute deterministic risk score via Phase 3 service
     risk = calculate_risk(reading)
 
@@ -152,13 +155,13 @@ def main() -> None:
 
     with side_col:
         st.markdown("#### 🤖 AI Location Analysis")
-        analysis_res = safe_call(lambda: agent.tools.get_location_risk(selected_name))
-        if analysis_res.ok and "error" not in analysis_res.value:
-            data = analysis_res.value
+        current_r = getattr(st.session_state, "current_reading", None)
+        if current_r:
+            local_risk = calculate_risk(current_r)
             st.info(
-                f"**Location:** {data['name']}\n\n"
-                f"**Risk Level:** {data['risk_level']} ({data['risk_score']}/100)\n\n"
-                f"**Reasoning:** Elevated hyperlocal temperature reading requires priority deployment of shade and hydration facilities for vulnerable outdoor groups."
+                f"**Location:** {current_r.name}\n\n"
+                f"**Risk Level:** {local_risk.level} ({local_risk.score}/100)\n\n"
+                f"**Reasoning:** Live temperature reading for {current_r.name} at {current_r.temperature_c}°C indicates heat stress. Priority deployment of hydration and shade facilities is recommended."
             )
         else:
             st.write("I cannot confirm this from the available data.")
@@ -168,7 +171,10 @@ def main() -> None:
     planner_col, compare_col = st.columns([1, 1])
     with planner_col:
         st.markdown("#### 🏛️ AI Agent Assistant")
-        user_q = st.text_input("Ask agent about heat risks or priorities:", f"What is the heat risk and priority for {selected_name}?", key="agent_user_q")
+        current_r = getattr(st.session_state, "current_reading", None)
+        city_context = f" for {current_r.name} (Temperature: {current_r.temperature_c}°C)" if current_r else ""
+        
+        user_q = st.text_input("Ask agent about heat risks or priorities:", f"What is the heat risk and priority{city_context}?", key="agent_user_q")
         if st.button("Ask Agent", key="ask_agent_btn"):
             with st.spinner("Analyzing verified tool data..."):
                 try:
