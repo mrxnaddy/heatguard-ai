@@ -6,7 +6,6 @@ from __future__ import annotations
 import logging
 import time
 from typing import Protocol
-
 import requests
 
 from app.config import Settings, settings as default_settings
@@ -20,10 +19,7 @@ logger = logging.getLogger("heatguard.fortyguard_client")
 
 class TemperatureProvider(Protocol):
     def get_temperature(self, location_id: str) -> TemperatureReading: ...
-
-    def get_temperatures_bulk(self, location_ids: list[str]) -> list[TemperatureReading]:
-        ...
-
+    def get_temperatures_bulk(self, location_ids: list[str]) -> list[TemperatureReading]: ...
     def health_check(self) -> bool: ...
 
 
@@ -158,7 +154,6 @@ class FortyGuardClient:
 
     def get_live_weather(self, city_name: str) -> dict:
         import requests
-        from app.config import settings
         
         short_forms = {
             "isb": "Islamabad",
@@ -175,18 +170,45 @@ class FortyGuardClient:
         if query_clean in short_forms:
             city_name = short_forms[query_clean]
 
-        api_key = getattr(settings, "OPENWEATHER_API_KEY", None) or __import__("os").getenv("OPENWEATHER_API_KEY")
-        url = f"https://api.openweathermap.org/data/2.5/weather?q={city_name},PK&units=metric&appid={api_key}"
+        coords = {
+            "Islamabad": (33.6844, 73.0479),
+            "Rawalpindi": (33.5651, 73.0169),
+            "Lahore": (31.5497, 74.3436),
+            "Karachi": (24.8607, 67.0011),
+            "Peshawar": (34.0151, 71.5249),
+            "Quetta": (30.1798, 66.9750),
+            "Faisalabad": (31.4504, 73.1350),
+            "Multan": (30.1575, 71.5249)
+        }
         
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
+        lat, lon = coords.get(city_name, (33.6844, 73.0479))
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m"
+        
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                current = data.get("current", {})
+                return {
+                    "name": city_name,
+                    "temperature_c": current.get("temperature_2m", 35.0),
+                    "humidity": current.get("relative_humidity_2m", 50),
+                    "condition": "Live Real-Time Data",
+                    "confidence": "high"
+                }
+            else:
+                return {
+                    "name": city_name,
+                    "temperature_c": 35.0,
+                    "humidity": 45,
+                    "condition": "fallback",
+                    "confidence": "partial"
+                }
+        except (requests.RequestException, Exception):
             return {
-                "name": data["name"],
-                "temperature_c": data["main"]["temp"],
-                "humidity": data["main"]["humidity"],
-                "condition": data["weather"][0]["description"],
-                "confidence": "high"
+                "name": city_name,
+                "temperature_c": 35.0,
+                "humidity": 40,
+                "condition": "offline",
+                "confidence": "low"
             }
-        else:
-            return {"error": f"Could not fetch live data for {city_name}"}

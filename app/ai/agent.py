@@ -69,13 +69,24 @@ class HeatGuardAgent:
         return formatted_response
 
     def _build_structured_response(self, query: str, data: dict) -> dict:
-        """Return structured dictionary instead of raw text string for UI rendering."""
+        """Return structured dictionary instead of raw text string for UI rendering with smart advisories."""
         hotspots = data.get("hotspots", [])
         if not hotspots and "temperature_c" in data:
             hotspots = [data]
+        
+        risk_level = str(data.get("risk_level", "moderate")).lower()
+        area_name = data.get("name", "selected area")
+        
+        if "extreme" in risk_level or "high" in risk_level:
+            advisory = f"🔴 High Heat Risk for {area_name}: Avoid direct sunlight between 11 AM and 4 PM, stay hydrated, and secure vulnerable populations."
+        elif "moderate" in risk_level:
+            advisory = f"🟡 Moderate Heat Risk for {area_name}: Monitor outdoor exposure and maintain regular hydration."
+        else:
+            advisory = f"🟢 Low Heat Risk for {area_name}: Conditions are stable, but maintain standard heat safety awareness."
+
         return {
             "hotspots": hotspots,
-            "recommendation": f"Prioritize heat mitigation and hydration efforts for {data.get('name', 'selected area')} based on verified readings.",
+            "recommendation": advisory,
             "confidence": data.get("confidence", "high")
         }
 

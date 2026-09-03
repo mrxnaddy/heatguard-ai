@@ -83,6 +83,21 @@ def main() -> None:
     # Define name_to_id globally for use in dropdowns and comparisons across all modes
     name_to_id = {loc.name: loc.location_id for loc in locations}
 
+    # --- National Heat Rankings Overview Ticker ---
+    with st.expander("🌍 Pakistan National Heat Overview (Major Cities)", expanded=False):
+        major_cities = ["Islamabad", "Lahore", "Karachi", "Peshawar", "Quetta", "Faisalabad"]
+        col_list = st.columns(len(major_cities))
+        
+        for i, city in enumerate(major_cities):
+            with col_list[i]:
+                live_data = client.get_live_weather(city)
+                if "error" not in live_data:
+                    temp = live_data["temperature_c"]
+                    risk_txt = "High" if temp > 38 else ("Moderate" if temp > 33 else "Low")
+                    st.metric(label=city, value=f"{temp}°C", delta=risk_txt)
+                else:
+                    st.metric(label=city, value="N/A", delta="Offline")
+
     # --- Location selector & Live City Search ---
     search_mode = st.radio("Mode", ["Preset Stations", "Live City Search (Pakistan)"], horizontal=True, key="search_mode")
     
@@ -186,12 +201,36 @@ def main() -> None:
                         
                         st.markdown("### 🔥 Identified Hotspots")
                         
-                        for spot in agent_response.get("hotspots", []):
+                        hotspots_list = agent_response.get("hotspots", [])
+                        for spot in hotspots_list:
                             st.markdown(f"* **{spot.get('name', 'Location')}**")
                             st.markdown(f"  * **Temperature:** {spot.get('temperature_c', 0)}°C (+{spot.get('delta_vs_baseline_c', 0)}°C vs baseline)")
                             st.markdown(f"  * **Risk Level:** {spot.get('risk_level', 'N/A')}")
                             st.markdown(f"  * **Intervention:** {spot.get('suggested_intervention_type', 'N/A')}")
                             st.markdown("")
+
+                        # --- CSV Report Export Feature for Hackathon ---
+                        if hotspots_list:
+                            import pandas as pd
+                            report_data = [
+                                {
+                                    "Location": h.get("name"),
+                                    "Temperature (°C)": h.get("temperature_c"),
+                                    "Risk Level": h.get("risk_level", "N/A"),
+                                    "Risk Score": h.get("risk_score", 0),
+                                    "Confidence": h.get("confidence", "high")
+                                }
+                                for h in hotspots_list
+                            ]
+                            df = pd.DataFrame(report_data)
+                            csv = df.to_csv(index=False).encode('utf-8')
+                            st.download_button(
+                                label="📥 Download Heat Risk Report (CSV)",
+                                data=csv,
+                                file_name="heatguard_risk_report.csv",
+                                mime="text/csv",
+                                key="download_csv_btn"
+                            )
                     else:
                         st.markdown(str(agent_response))
                 except Exception as exc:
