@@ -22,7 +22,7 @@ class HeatGuardAgent:
         query_lower = user_query.lower()
         tool_data = None
 
-        # Simple deterministic intent routing to tools
+        # Check if query targets a specific live city or general request
         if "compare" in query_lower or " and " in query_lower:
             if "rawalpindi" in query_lower and "islamabad" in query_lower:
                 tool_data = self.tools.compare_locations("Blue Area, Islamabad", "Committee Chowk, Rawalpindi")
@@ -37,10 +37,21 @@ class HeatGuardAgent:
         elif "highest" in query_lower or "hotspot" in query_lower or "prioritize" in query_lower or "top" in query_lower:
             tool_data = {"hotspots": self.tools.get_top_hotspots(n=3)}
         else:
-            # Default to location risk lookup for matching keywords in query
-            locations = ["blue area", "f-6", "margalla", "i-9", "committee chowk", "saddar", "bahria town", "islamabad", "rawalpindi"]
-            found_loc = next((loc for loc in locations if loc in query_lower), "blue area")
-            tool_data = self.tools.get_location_risk(found_loc)
+            # Check if query contains temperature or specific city context from live search
+            temp_match = re.search(r"temperature:\s*([\d.]+)", query_lower)
+            for_match = re.search(r"for\s+([a-zA-Z\s]+)(?:\(|$)", user_query)
+            
+            if for_match and not any(loc in query_lower for loc in ["blue area", "f-6", "margalla", "i-9", "committee chowk", "saddar", "bahria town"]):
+                city_name = for_match.group(1).strip()
+                live_res = self.tools.get_city_live_risk(city_name)
+                if "error" not in live_res:
+                    tool_data = live_res
+                else:
+                    tool_data = self.tools.get_location_risk(city_name)
+            else:
+                locations = ["blue area", "f-6", "margalla", "i-9", "committee chowk", "saddar", "bahria town", "islamabad", "rawalpindi"]
+                found_loc = next((loc for loc in locations if loc in query_lower), "blue area")
+                tool_data = self.tools.get_location_risk(found_loc)
 
         if not tool_data or "error" in tool_data:
             return "I cannot confirm this from the available data."
@@ -62,7 +73,7 @@ class HeatGuardAgent:
         return {
             "hotspots": hotspots,
             "recommendation": "Prioritize heat mitigation and hydration efforts based on the verified sensor readings above.",
-            "confidence": "high"
+            "confidence": data.get("confidence", "high")
         }
 
     def _validate_numbers(self, response_text: dict | str, tool_data: dict) -> bool:
