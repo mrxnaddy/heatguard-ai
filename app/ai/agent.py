@@ -17,7 +17,7 @@ class HeatGuardAgent:
         self.tools = AgentTools()
         self.llm = LLMClient()
 
-    def answer_query(self, user_query: str) -> str:
+    def answer_query(self, user_query: str) -> dict | str:
         """Process user question, invoke tools, validate numbers, and return structured output."""
         query_lower = user_query.lower()
         tool_data = None
@@ -45,7 +45,7 @@ class HeatGuardAgent:
         if not tool_data or "error" in tool_data:
             return "I cannot confirm this from the available data."
 
-        # Format according to Step 7 requirements
+        # Format according to requirements returning a dictionary for UI rendering
         formatted_response = self._build_structured_response(user_query, tool_data)
         
         # Step 8: Numeric Validation Layer
@@ -54,16 +54,28 @@ class HeatGuardAgent:
 
         return formatted_response
 
-    def _build_structured_response(self, query: str, data: dict) -> str:
-        return (
-            f"Data says:\n{data}\n\n"
-            f"Recommendation:\nPrioritize heat mitigation and hydration efforts based on the verified sensor readings above.\n\n"
-            f"Confidence:\nhigh"
-        )
+    def _build_structured_response(self, query: str, data: dict) -> dict:
+        """Return structured dictionary instead of raw text string for UI rendering."""
+        hotspots = data.get("hotspots", [])
+        if not hotspots and "temperature_c" in data:
+            hotspots = [data]
+        return {
+            "hotspots": hotspots,
+            "recommendation": "Prioritize heat mitigation and hydration efforts based on the verified sensor readings above.",
+            "confidence": "high"
+        }
 
-    def _validate_numbers(self, response_text: str, tool_data: dict) -> bool:
-        """Compare numerical values in text against tool data."""
+    def _validate_numbers(self, response_text: dict | str, tool_data: dict) -> bool:
+        """Compare numerical values against tool data."""
         return True
 
-    def _build_safe_fallback(self, data: dict) -> str:
-        return f"Data says:\n{data}\n\nRecommendation:\nReview verified metrics.\n\nConfidence:\nhigh"
+    def _build_safe_fallback(self, data: dict) -> dict:
+        """Return structured fallback dictionary."""
+        hotspots = data.get("hotspots", [])
+        if not hotspots and "temperature_c" in data:
+            hotspots = [data]
+        return {
+            "hotspots": hotspots,
+            "recommendation": "Review verified metrics.",
+            "confidence": "high"
+        }

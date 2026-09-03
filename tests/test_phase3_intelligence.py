@@ -76,5 +76,7 @@ def test_agent_comparison():
 def test_agent_fallback():
     agent = HeatGuardAgent()
     response = agent.answer_query("What is the risk in Blue Area?")
-    assert "Data says:" in response
-    assert "Recommendation:" in response
+    assert isinstance(response, dict)
+    assert "hotspots" in response
+    assert "recommendation" in response
+    assert "confidence" in response
