@@ -146,7 +146,18 @@ def main() -> None:
                 try:
                     agent_response = agent.answer_query(user_q)
                     if isinstance(agent_response, dict):
-                        st.json(agent_response)
+                        st.markdown("### 🏛️ AI Agent Heat Risk Analysis")
+                        st.markdown(f"**Recommendation:** {agent_response.get('recommendation', 'N/A')}")
+                        st.markdown(f"**Confidence Level:** `{agent_response.get('confidence', 'N/A').upper()}`")
+                        
+                        st.markdown("### 🔥 Identified Hotspots")
+                        
+                        for spot in agent_response.get("hotspots", []):
+                            st.markdown(f"* **{spot.get('name', 'Location')}**")
+                            st.markdown(f"  * **Temperature:** {spot.get('temperature_c', 0)}°C (+{spot.get('delta_vs_baseline_c', 0)}°C vs baseline)")
+                            st.markdown(f"  * **Risk Level:** {spot.get('risk_level', 'N/A')}")
+                            st.markdown(f"  * **Intervention:** {spot.get('suggested_intervention_type', 'N/A')}")
+                            st.markdown("")
                     else:
                         st.markdown(str(agent_response))
                 except Exception as exc:
