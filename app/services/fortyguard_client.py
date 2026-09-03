@@ -160,7 +160,7 @@ class FortyGuardClient:
         import requests
         from app.config import settings
         
-        api_key = getattr(settings, "OPENWEATHER_API_KEY", "YOUR_API_KEY_HERE")
+       api_key = getattr(settings, "OPENWEATHER_API_KEY", None) or __import__("os").getenv("OPENWEATHER_API_KEY")
         url = f"https://api.openweathermap.org/data/2.5/weather?q={city_name},PK&units=metric&appid={api_key}"
         
         response = requests.get(url)
