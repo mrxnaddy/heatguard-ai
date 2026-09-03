@@ -22,9 +22,10 @@ class HeatGuardAgent:
         query_lower = user_query.lower()
         tool_data = None
 
-        if "compare" in query_lower or " and " in query_lower:
-            parts = query_lower.replace("compare", "").split("and")
-            if len(parts) == 2:
+        if "compare" in query_lower or "vs" in query_lower or "versus" in query_lower:
+            clean_q = query_lower.replace("compare", "").replace("versus", "").replace("vs", "").replace("between", "")
+            parts = clean_q.split("and") if "and" in clean_q else clean_q.split(",")
+            if len(parts) >= 2:
                 tool_data = self.tools.compare_locations(parts[0].strip(), parts[1].strip())
             else:
                 tool_data = self.tools.compare_locations("Blue Area, Islamabad", "Committee Chowk, Rawalpindi")
