@@ -25,7 +25,8 @@ class AgentTools:
             None,
         )
         if not match:
-            return {"error": f"I cannot confirm this from the available data for '{location_query}'."}
+            # Fallback to live weather lookup if not found in preset stations
+            return self.get_city_live_risk(location_query)
 
         risk = calculate_risk(match)
         return {
@@ -44,7 +45,7 @@ class AgentTools:
         live_data = self.client.get_live_weather(city_name)
         
         if "error" in live_data:
-            return live_data
+            return {"error": f"I cannot confirm this from the available data for '{city_name}'."}
 
         reading = SimpleNamespace(
             location_id=city_name.lower().replace(" ", "-"),
@@ -58,8 +59,8 @@ class AgentTools:
         return {
             "name": live_data["name"],
             "temperature_c": live_data["temperature_c"],
-            "humidity": live_data["humidity"],
-            "condition": live_data["condition"],
+            "humidity": live_data.get("humidity", 0),
+            "condition": live_data.get("condition", "N/A"),
             "risk_level": risk.level,
             "risk_score": risk.score,
             "confidence": live_data["confidence"]

@@ -22,47 +22,41 @@ class HeatGuardAgent:
         query_lower = user_query.lower()
         tool_data = None
 
-        # Check if query targets a specific live city or general request
         if "compare" in query_lower or " and " in query_lower:
-            if "rawalpindi" in query_lower and "islamabad" in query_lower:
-                tool_data = self.tools.compare_locations("Blue Area, Islamabad", "Committee Chowk, Rawalpindi")
-            elif "f-6" in query_lower and "blue area" in query_lower:
-                tool_data = self.tools.compare_locations("Blue Area, Islamabad", "F-6 Markaz, Islamabad")
+            parts = query_lower.replace("compare", "").split("and")
+            if len(parts) == 2:
+                tool_data = self.tools.compare_locations(parts[0].strip(), parts[1].strip())
             else:
-                parts = query_lower.replace("compare", "").split("and")
-                if len(parts) == 2:
-                    tool_data = self.tools.compare_locations(parts[0].strip(), parts[1].strip())
-                else:
-                    tool_data = self.tools.compare_locations("Blue Area, Islamabad", "Committee Chowk, Rawalpindi")
+                tool_data = self.tools.compare_locations("Blue Area, Islamabad", "Committee Chowk, Rawalpindi")
         elif "highest" in query_lower or "hotspot" in query_lower or "prioritize" in query_lower or "top" in query_lower:
             tool_data = {"hotspots": self.tools.get_top_hotspots(n=3)}
         else:
-            # Check if query contains temperature or specific city context from live search
-            temp_match = re.search(r"temperature:\s*([\d.]+)", query_lower)
-            for_match = re.search(r"for\s+([a-zA-Z\s]+)(?:\(|$)", user_query)
-            
-            if for_match and not any(loc in query_lower for loc in ["blue area", "f-6", "margalla", "i-9", "committee chowk", "saddar", "bahria town"]):
-                city_name = for_match.group(1).strip()
-                live_res = self.tools.get_city_live_risk(city_name)
-                if "error" not in live_res:
-                    tool_data = live_res
-                else:
+            # Extract city name dynamically from the query string (e.g., "for Lahore", "for Karachi", etc.)
+            match = re.search(r"(?:for|in|at)\s+([a-zA-Z\s]+?)(?:\s*\(|$|\?)", user_query, re.IGNORECASE)
+            if match:
+                city_name = match.group(1).strip()
+                # Clean common trailing words if captured
+                city_name = re.sub(r"\b(temperature|risk|priority|status)\b.*", "", city_name, flags=re.IGNORECASE).strip()
+                if city_name:
                     tool_data = self.tools.get_location_risk(city_name)
-            else:
-                locations = ["blue area", "f-6", "margalla", "i-9", "committee chowk", "saddar", "bahria town", "islamabad", "rawalpindi"]
-                found_loc = next((loc for loc in locations if loc in query_lower), "blue area")
-                tool_data = self.tools.get_location_risk(found_loc)
+            
+            if not tool_data:
+                # Fallback search through known keywords or default to first word/location
+                locations = ["blue area", "f-6", "margalla", "i-9", "committee chowk", "saddar", "bahria town", "islamabad", "rawalpindi", "lahore", "karachi", "multan", "faisalabad"]
+                found_loc = next((loc for loc in locations if loc in query_lower), None)
+                if found_loc:
+                    tool_data = self.tools.get_location_risk(found_loc)
+                else:
+                    # Default absolute fallback to whatever city was provided in the text or Blue Area
+                    words = user_query.split()
+                    target = words[-1] if words else "Blue Area"
+                    tool_data = self.tools.get_location_risk(target)
 
         if not tool_data or "error" in tool_data:
-            return "I cannot confirm this from the available data."
+            err_msg = tool_data.get("error") if isinstance(tool_data, dict) else "I cannot confirm this from the available data."
+            return err_msg
 
-        # Format according to requirements returning a dictionary for UI rendering
         formatted_response = self._build_structured_response(user_query, tool_data)
-        
-        # Step 8: Numeric Validation Layer
-        if not self._validate_numbers(formatted_response, tool_data):
-            formatted_response = self._build_safe_fallback(tool_data)
-
         return formatted_response
 
     def _build_structured_response(self, query: str, data: dict) -> dict:
@@ -72,16 +66,14 @@ class HeatGuardAgent:
             hotspots = [data]
         return {
             "hotspots": hotspots,
-            "recommendation": "Prioritize heat mitigation and hydration efforts based on the verified sensor readings above.",
+            "recommendation": f"Prioritize heat mitigation and hydration efforts for {data.get('name', 'selected area')} based on verified readings.",
             "confidence": data.get("confidence", "high")
         }
 
     def _validate_numbers(self, response_text: dict | str, tool_data: dict) -> bool:
-        """Compare numerical values against tool data."""
         return True
 
     def _build_safe_fallback(self, data: dict) -> dict:
-        """Return structured fallback dictionary."""
         hotspots = data.get("hotspots", [])
         if not hotspots and "temperature_c" in data:
             hotspots = [data]
