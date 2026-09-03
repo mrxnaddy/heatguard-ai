@@ -80,11 +80,13 @@ def main() -> None:
         st.stop()
         return
 
+    # Define name_to_id globally for use in dropdowns and comparisons across all modes
+    name_to_id = {loc.name: loc.location_id for loc in locations}
+
     # --- Location selector & Live City Search ---
     search_mode = st.radio("Mode", ["Preset Stations", "Live City Search (Pakistan)"], horizontal=True, key="search_mode")
     
     if search_mode == "Preset Stations":
-        name_to_id = {loc.name: loc.location_id for loc in locations}
         selected_name = st.selectbox("📍 Select a location", options=list(name_to_id.keys()))
         selected_id = name_to_id[selected_name]
 
@@ -94,6 +96,7 @@ def main() -> None:
             st.stop()
             return
         reading = reading_result.value
+        selected_name = reading.name
     else:
         custom_city = st.text_input("Enter city name in Pakistan (e.g., Lahore, Karachi, Faisalabad, Multan):", "Lahore")
         if custom_city:
