@@ -31,26 +31,33 @@ class HeatGuardAgent:
         elif "highest" in query_lower or "hotspot" in query_lower or "prioritize" in query_lower or "top" in query_lower:
             tool_data = {"hotspots": self.tools.get_top_hotspots(n=3)}
         else:
-            # Extract city name dynamically from the query string (e.g., "for Lahore", "for Karachi", etc.)
-            match = re.search(r"(?:for|in|at)\s+([a-zA-Z\s]+?)(?:\s*\(|$|\?)", user_query, re.IGNORECASE)
-            if match:
-                city_name = match.group(1).strip()
-                # Clean common trailing words if captured
-                city_name = re.sub(r"\b(temperature|risk|priority|status)\b.*", "", city_name, flags=re.IGNORECASE).strip()
-                if city_name:
-                    tool_data = self.tools.get_location_risk(city_name)
+            # First, check if any known city or preset station is directly mentioned in the query
+            known_locations = [
+                "lahore", "karachi", "islamabad", "rawalpindi", "faisalabad", 
+                "multan", "peshawar", "quetta", "blue area", "f-6", 
+                "margalla", "i-9", "committee chowk", "saddar", "bahria town"
+            ]
             
-            if not tool_data:
-                # Fallback search through known keywords or default to first word/location
-                locations = ["blue area", "f-6", "margalla", "i-9", "committee chowk", "saddar", "bahria town", "islamabad", "rawalpindi", "lahore", "karachi", "multan", "faisalabad"]
-                found_loc = next((loc for loc in locations if loc in query_lower), None)
-                if found_loc:
-                    tool_data = self.tools.get_location_risk(found_loc)
+            found_loc = next((loc for loc in known_locations if loc in query_lower), None)
+            
+            if found_loc:
+                tool_data = self.tools.get_location_risk(found_loc)
+            else:
+                # Cleanly extract custom city name before any parenthesis, brackets or question marks
+                clean_query = re.sub(r"\(.*?\)", "", user_query)
+                match = re.search(r"(?:for|in|at)\s+([a-zA-Z\s]+?)(?:\?|$|\()", clean_query, re.IGNORECASE)
+                
+                city_name = None
+                if match:
+                    city_name = match.group(1).strip()
+                    # Strip any trailing control words
+                    city_name = re.sub(r"\b(temperature|risk|priority|status|heat|and|is|the)\b.*", "", city_name, flags=re.IGNORECASE).strip()
+                
+                if city_name and len(city_name) > 1:
+                    tool_data = self.tools.get_location_risk(city_name)
                 else:
-                    # Default absolute fallback to whatever city was provided in the text or Blue Area
-                    words = user_query.split()
-                    target = words[-1] if words else "Blue Area"
-                    tool_data = self.tools.get_location_risk(target)
+                    # Final fallback to Blue Area if nothing matches
+                    tool_data = self.tools.get_location_risk("Blue Area, Islamabad")
 
         if not tool_data or "error" in tool_data:
             err_msg = tool_data.get("error") if isinstance(tool_data, dict) else "I cannot confirm this from the available data."
