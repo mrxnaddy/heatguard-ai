@@ -168,7 +168,7 @@ def main() -> None:
     planner_col, compare_col = st.columns([1, 1])
     with planner_col:
         st.markdown("#### 🏛️ AI Agent Assistant")
-        user_q = st.text_input("Ask agent about heat risks or priorities:", "Which area has the highest heat risk?", key="agent_user_q")
+        user_q = st.text_input("Ask agent about heat risks or priorities:", f"What is the heat risk and priority for {selected_name}?", key="agent_user_q")
         if st.button("Ask Agent", key="ask_agent_btn"):
             with st.spinner("Analyzing verified tool data..."):
                 try:
